@@ -2,10 +2,12 @@
 
 require_dependency 'card'
 require_dependency 'card/action'
+require_dependency 'card/mailer'  #otherwise Net::SMTPError rescues can cause problems when error raised comes before Card::Mailer is mentioned
 
 class CardController < ActionController::Base
 
-  include Wagn::Location
+  include Card::Format::Location
+  include Card::HtmlFormat::Location
   include Recaptcha::Verify
 
   before_filter :per_request_setup, :except => [:asset]
