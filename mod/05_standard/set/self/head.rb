@@ -8,6 +8,7 @@ format :html do
       #{ head_buttons     }
       #{ head_stylesheets }
       #{ head_javascript }      
+      #{ head_meta }      
     )
   end
   
@@ -100,7 +101,15 @@ format :html do
       </script>)
   end
     
-  
+  def head_meta
+    root_card = root.card
+    meta_content = root_card.rule_card(:meta).content if root_card.rule_card(:meta)
+    meta_content ||= root_card.name
+    %{
+      <meta name="description" content="#{meta_content}">
+    }
+  end
+
   def google_analytics_head_javascript
     if ga_key = Card.setting("*google analytics key") #fixme.  escape this?
       %{
