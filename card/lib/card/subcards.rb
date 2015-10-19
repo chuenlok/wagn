@@ -27,6 +27,7 @@ class Card
 
   def expire_subcards
     Card.cache.delete_local subcards_cache_key
+    subcards.clear
   end
 
   def subcards_cache_key
@@ -40,6 +41,13 @@ class Card
       @keys = ::Set.new
     end
 
+    def clear
+      @keys.each do |key|
+        Card.cache.delete_local key
+      end
+      @keys = ::Set.new
+    end
+
     def remove name_or_card
       key = case name_or_card
             when Card
@@ -50,12 +58,11 @@ class Card
               name_or_card.to_name.key
             end
 
-      if @keys.include? key
-        @keys.delete key
-      else
-        ab_key = absolutize_subcard_name(key).key
-        @keys.delete ab_key if @keys.include? ab_key
-      end
+      key = absolutize_subcard_name(key).key unless @keys.include?(key)
+      @keys.delete key
+      removed_card = fetch_subcard key
+      Card.cache.delete_local key
+      removed_card
     end
 
     def add name_or_card_or_attr, card_or_attr=nil
@@ -88,6 +95,13 @@ class Card
         new_by_attributes card_or_attr, {}
       end
     end
+
+    def rename old_name, new_name
+      return unless @keys.include? old_name.to_name.key
+
+    end
+
+
 
     def << value
       add value
@@ -201,7 +215,7 @@ class Card
 
     def new_by_attributes name, attributes={}
       absolute_name = absolutize_subcard_name name
-      if absolute_name.a_field_of?(@context_card.name) &&
+      if absolute_name.field_of?(@context_card.name) &&
          (absolute_name.parts.size - @context_card.cardname.parts.size) > 2
         left_card = new_by_attributes absolute_name.left
         new_by_card left_card
@@ -224,7 +238,7 @@ class Card
     def new_by_card card
       card.supercard = @context_card
       if !card.cardname.simple? &&
-         card.cardname.a_field_of?(@context_card.cardname)
+         card.cardname.field_of?(@context_card.cardname)
         card.superleft = @context_card
       end
       @keys << card.key
