@@ -1,7 +1,7 @@
 # -*- encoding : utf-8 -*-
 
-require_dependency 'card/set'
-require_dependency 'card/set_pattern'
+require_dependency "card/set"
+require_dependency "card/set_pattern"
 
 class Card
   class << self
@@ -20,8 +20,6 @@ class Card
         load_set_patterns
         load_formats
         load_sets
-
-        refresh_script_and_style if ENV['RAILS_ENV'] == 'development'
       end
 
       def load_chunks
@@ -36,15 +34,15 @@ class Card
           next unless File.exist? dirname
           Dir.foreach(dirname) do |filename|
             next if filename =~ /^\./
-            hash[filename.gsub /\.html$/, ''] =
-              File.read([dirname, filename].join('/'))
+            layout_name = filename.gsub(/\.html$/, "")
+            hash[layout_name] = File.read File.join(dirname, filename)
           end
         end
       end
 
       def mod_dirs
         @@mod_dirs ||= begin
-          Card.paths['mod'].existent.map do |dirname|
+          Card.paths["mod"].existent.map do |dirname|
             Dir.entries(dirname).sort.map do |filename|
               "#{dirname}/#{filename}" if filename !~ /^\./
             end.compact
@@ -52,23 +50,37 @@ class Card
         end
       end
 
-      private
-
       def refresh_script_and_style
         update_if_source_file_changed Card[:all, :script]
         update_if_source_file_changed Card[:all, :style]
       end
 
+      private
+
       # regenerates the machine output if a source file of a input card
       # has been changed
       def update_if_source_file_changed machine_card
+        return unless machine_card
         mtime_output = machine_card.machine_output_card.updated_at
         return unless mtime_output
-        source_files(machine_card).each do |path|
-          if File.mtime(path) > mtime_output
-            machine_card.update_machine_output
+        regenerate = false
+        input_cards_with_source_files(machine_card) do |i_card, files|
+          files.each do |path|
+            next unless File.mtime(path) > mtime_output
+            i_card.expire_machine_cache
+            regenerate = true
             break
           end
+        end
+        return unless regenerate
+        machine_card.regenerate_machine_output
+      end
+
+      def input_cards_with_source_files card
+        card.machine_input_card.extended_item_cards.each do |i_card|
+          next unless i_card.codename
+          next unless i_card.respond_to?(:existing_source_paths)
+          yield i_card, i_card.existing_source_paths
         end
       end
 
@@ -88,7 +100,7 @@ class Card
       end
 
       def generate_set_pattern_tmp_files
-        prepare_tmp_dir 'tmp/set_pattern'
+        prepare_tmp_dir "tmp/set_pattern"
         seq = 100
         mod_dirs.each do |mod|
           dirname = "#{mod}/set_pattern"
@@ -97,7 +109,7 @@ class Card
             m = filename.match(/^(\d+_)?([^\.]*).rb/)
             key = m && m[2]
             next unless key
-            filename = [dirname, filename].join('/')
+            filename = [dirname, filename].join("/")
             SetPattern.write_tmp_file key, filename, seq
             seq += 1
           end
@@ -120,12 +132,12 @@ class Card
       end
 
       def generate_tmp_set_modules
-        return unless prepare_tmp_dir 'tmp/set'
+        return unless prepare_tmp_dir "tmp/set"
         seq = 1
         mod_dirs.each do |mod_dir|
           mod_tmp_dir = make_set_module_tmp_dir mod_dir, seq
           Dir.glob("#{mod_dir}/set/**/*.rb").each do |abs_filename|
-            rel_filename = abs_filename.gsub "#{mod_dir}/set/", ''
+            rel_filename = abs_filename.gsub "#{mod_dir}/set/", ""
             tmp_filename = "#{mod_tmp_dir}/#{rel_filename}"
             Set.write_tmp_file abs_filename, tmp_filename, rel_filename
           end
@@ -135,7 +147,7 @@ class Card
 
       def load_tmp_set_modules
         patterns = Card.set_patterns.reverse.map(&:pattern_code)
-                       .unshift 'abstract'
+                       .unshift "abstract"
         Dir.glob("#{Card.paths['tmp/set'].first}/*").sort.each do |tmp_mod|
           patterns.each do |pattern|
             pattern_dir = "#{tmp_mod}/#{pattern}"
@@ -146,7 +158,8 @@ class Card
 
       def make_set_module_tmp_dir mod_dir, seq
         modname = mod_dir.match(%r{[^/]+$})[0]
-        mod_tmp_dir = "#{Card.paths['tmp/set'].first}/mod#{'%03d' % seq}-#{modname}"
+        mod_tmp_dir = File.join Card.paths["tmp/set"].first,
+                                "mod#{'%03d' % seq}-#{modname}"
         Dir.mkdir mod_tmp_dir
         mod_tmp_dir
       end
@@ -163,7 +176,7 @@ class Card
           @@rewrite
         else
           @@rewrite = !(Rails.env.production? &&
-                      Card.paths['tmp/set'].existent.first)
+                      Card.paths["tmp/set"].existent.first)
         end
       end
 

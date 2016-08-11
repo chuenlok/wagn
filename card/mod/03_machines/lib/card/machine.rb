@@ -57,7 +57,7 @@ class Card
 
     def self.included host_class
       host_class.extend(ClassMethods)
-      host_class.output_config = { filetype: 'txt' }
+      host_class.output_config = { filetype: "txt" }
 
       # for compatibility with old migrations
       return unless  Codename[:machine_output]
@@ -71,7 +71,7 @@ class Card
     end
 
     def self.define_machine_events host_class
-      event_suffix = host_class.name.tr ':', '_'
+      event_suffix = host_class.name.tr ":", "_"
       event_name = "reset_machine_output_#{event_suffix}".to_sym
       host_class.event event_name, after: :expire_related, on: :save do
         reset_machine_output
@@ -151,15 +151,32 @@ class Card
 
     def run_engine input_card
       return if input_card.is_a? Card::Set::Type::Pointer
+      if (cached = fetch_cache_card(input_card))
+        return cached.content
+      end
+
       input = if input_card.respond_to? :machine_input
                 input_card.machine_input
               else
                 input_card.format._render_raw
               end
-      engine(input)
+      output = engine(input)
+      cache_output_part input_card, output
+      output
     end
 
-    # attaches the input card update as subcard
+    def fetch_cache_card input_card, new=nil
+      new &&= { type_id: PlainTextID }
+      Card.fetch input_card.name, name, :machine_cache, new: new
+    end
+
+    def cache_output_part input_card, output
+      Auth.as_bot do
+        cache_card = fetch_cache_card(input_card, true)
+        cache_card.update_attributes! content: output
+      end
+    end
+
     def reset_machine_output
       Auth.as_bot do
         (moc = machine_output_card) && moc.real? && moc.delete!
@@ -168,11 +185,23 @@ class Card
     end
 
     def update_machine_output
+      lock do
+        update_input_card
+        run_machine
+      end
+    end
+
+    def regenerate_machine_output
+      lock do
+        run_machine
+      end
+    end
+
+    def lock
       if ok?(:read) && !(was_already_locked = locked?)
         Auth.as_bot do
           lock!
-          update_input_card
-          run_machine
+          yield
         end
       end
     ensure
@@ -198,7 +227,7 @@ class Card
     def update_input_card
       if DirectorRegister.running_act?
         input_card = attach_subcard! machine_input_card
-        input_card.content = ''
+        input_card.content = ""
         engine_input.each { |input| input_card << input }
       else
         machine_input_card.items = engine_input

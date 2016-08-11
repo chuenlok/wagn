@@ -1,6 +1,6 @@
 # -*- encoding : utf-8 -*-
 
-shared_examples_for 'machine input' do
+shared_examples_for "machine input" do
   subject(:input) do
     myinput = create_machine_input_card
     myinput
@@ -16,8 +16,8 @@ shared_examples_for 'machine input' do
     moreinput
   end
 
-  context 'when removed' do
-    it 'updates machine_input card of machine card' do
+  context "when removed" do
+    it "updates machine_input card of machine card" do
       machine
       Card::Auth.as_bot do
         input.delete!
@@ -26,23 +26,23 @@ shared_examples_for 'machine input' do
       expect(ca.machine_input_card.item_cards).to eq([])
     end
 
-    it 'updates output of machine card' do
+    it "updates output of machine card" do
       machine
       Card::Auth.as_bot do
         input.delete!
       end
       f = Card.gimme machine.cardname
       path = f.machine_output_path
-      expect(File.read path).to eq('')
+      expect(File.read path).to eq("")
     end
   end
 
-  it 'delivers machine input' do
+  it "delivers machine input" do
     expect(input.machine_input).to eq(card_content[:out])
   end
 
-  context 'when updated' do
-    it 'updates output of related machine card' do
+  context "when updated" do
+    it "updates output of related machine card" do
       input.putty content: card_content[:changed_in]
       updated_machine = Card.gimme machine.cardname
       path = updated_machine.machine_output_path
@@ -50,14 +50,19 @@ shared_examples_for 'machine input' do
     end
   end
 
-  context 'when added' do
-    it 'updates output of related machine card' do
+  context "when added" do
+    it "updates output of related machine card" do
       if machine.is_a? Card::Set::Type::Pointer
         machine << more_input
         machine.putty
         updated_machine = Card.gimme machine.cardname
         path = updated_machine.machine_output_path
-        expect(File.read path).to eq(([card_content[:out]] * 2).join("\n"))
+        out = if card_content[:added_out]
+                card_content[:added_out]
+              else
+                ([card_content[:out]] * 2).join("\n")
+              end
+        expect(File.read path).to eq(out)
       end
     end
   end
