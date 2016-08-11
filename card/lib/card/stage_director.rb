@@ -104,6 +104,7 @@ class Card
       catch_up_to_stage :prepare_to_store
       run_single_stage :store, &block
       run_single_stage :finalize
+      true
     ensure
       @from_trash = nil
     end
@@ -192,9 +193,7 @@ class Card
     end
 
     def run_single_stage stage, &block
-      return unless valid_next_stage? stage
-      # puts "#{@card.name}: #{stage} stage".red
-
+      return true unless valid_next_stage? stage
       @stage = stage_index stage
       if stage == :initialize
         @running ||= true
