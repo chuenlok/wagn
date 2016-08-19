@@ -1,8 +1,24 @@
 class Card
   def act opts={}
+    # binding.pry if self.name == "another_voting_claim+*upvote_count"
+    # puts self.name.green
     if DirectorRegister.act_card
-      # director.reset_stage
-      # self.only_storage_phase = true
+      # if a card is not saved as a subcard by the "SuperDirector"
+      # we restart from scratch
+      # (otherwise if you call save! a second time on a card that has changed
+      #  since the first save! call then the changes get lost because the old
+      #  director will save the old version)
+      # puts "\t#{DirectorRegister.act_card.name}".yellow
+      if DirectorRegister.act_card != self && !only_storage_phase
+        # binding.pry if self.name == "another voting claim+*vote count"
+        # binding.pry if self.name == "another_voting_claim+*upvote_count"
+        # if subcards.empty?
+          director.unregister
+          director.delete
+          director
+        # end
+        self.only_storage_phase = true
+      end
       main_act_block = false
     else
       DirectorRegister.clear

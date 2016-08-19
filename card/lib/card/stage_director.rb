@@ -93,6 +93,7 @@ class Card
     end
 
     def validation_phase
+      # binding.pry if @card.name == "another_voting_claim+*upvote_count"
       run_single_stage :initialize
       run_single_stage :prepare_to_validate
       run_single_stage :validate
@@ -101,6 +102,7 @@ class Card
     end
 
     def storage_phase &block
+      # binding.pry if @card.name == "another_voting_claim+*upvote_count"
       catch_up_to_stage :prepare_to_store
       run_single_stage :store, &block
       run_single_stage :finalize
@@ -109,11 +111,13 @@ class Card
     end
 
     def integration_phase
+      # binding.pry if @card.name == "another_voting_claim+*upvote_count"
       return if @abort
       @card.restore_changes_information
       run_single_stage :integrate
       run_single_stage :integrate_with_delay
     rescue => e  # don't rollback
+      # binding.pry
       Card::Error.current = e
       @card.notable_exception_raised
       return false
@@ -123,6 +127,8 @@ class Card
     end
 
     def catch_up_to_stage next_stage
+      # puts "\t#{@card.name}: #{next_stage} stage".green
+      # binding.pry if @card.name == "Joe User+*upvotes"
       if @transact_in_stage
         return if @transact_in_stage != next_stage
         next_stage = :integrate_with_delay
@@ -193,7 +199,7 @@ class Card
 
     def run_single_stage stage, &block
       return true unless valid_next_stage? stage
-      # puts "#{@card.name}: #{stage} stage".red
+      # puts "\t\t#{@card.name}: #{stage} stage".red
 
       @stage = stage_index stage
       if stage == :initialize
